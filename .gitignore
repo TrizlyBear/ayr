@@ -16,3 +16,7 @@
 
 # Logs
 logs/
+
+# Configuration files
+
+config/
