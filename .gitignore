@@ -18,8 +18,9 @@
 logs/
 
 # Configuration files
-config/
-!config/example.*
+.env
+mongod.conf
+!example.*
 
 # Goland stuff
 .idea/
