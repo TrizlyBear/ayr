@@ -19,7 +19,7 @@ logs/
 
 # Configuration files
 config/
-*.env
+!example.*
 
 # Goland stuff
 .idea/
