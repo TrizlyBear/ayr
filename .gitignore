@@ -19,7 +19,7 @@ logs/
 
 # Configuration files
 config/
-!example.*
+!config/example.*
 
 # Goland stuff
 .idea/
