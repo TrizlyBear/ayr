@@ -1,7 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"github.com/TrizlyBear/ayr/ayr"
+)
 
 func main()  {
-	fmt.Println("Hi")
+	ayr.Init()
 }

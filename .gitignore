@@ -18,5 +18,8 @@
 logs/
 
 # Configuration files
-
 config/
+*.env
+
+# Goland stuff
+.idea/
