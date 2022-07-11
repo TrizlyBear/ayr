@@ -1,59 +1,97 @@
 package ayr
 
 import (
-	"context"
 	"fmt"
 	"github.com/TrizlyBear/ayr/ayr/dispatcher"
-	"github.com/TrizlyBear/ayr/ayr/handlers"
+	"github.com/TrizlyBear/ayr/ayr/plugins"
+	"github.com/TrizlyBear/ayr/ayr/types"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"runtime"
+	"strings"
 	"syscall"
-	"time"
 )
 
+func InteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreate)  {
+	switch i.Type {
+	case discordgo.InteractionApplicationCommand:
+		if c, ok := dispatcher.Ayr.Commands[i.ApplicationCommandData().Name]; ok {
+			go func() {
+				err := c.R(s,i)
+				if err != nil {
+					log.Fatalf("Failed to execute command: %s - %s", i.ApplicationCommandData().Name, err)
+				}
+			}()
+		}
+	case discordgo.InteractionMessageComponent:
+		fmt.Println(i.MessageComponentData().CustomID)
+		cn := strings.Split(i.MessageComponentData().CustomID, "_")
+		fmt.Println(strings.Join(cn[1:],"_"))
+		if c, ok := dispatcher.Ayr.Commands[cn[0]]; ok {
+			if c.IR != nil {
+				c.IR(s, i, cn[1:])
+			}
+		}
+	case discordgo.InteractionApplicationCommandAutocomplete:
+		data := i.ApplicationCommandData()
+		cname := data.Name
+		if c, ok := dispatcher.Ayr.Commands[cname]; ok {
+			c.AC(s,i)
+		}
+
+	}
+}
+
 func Init()  {
-	_, b, _, _ := runtime.Caller(0)
-	ProjectRootPath := filepath.Join(filepath.Dir(b), "../")
-	err := godotenv.Load(ProjectRootPath+"/config/.env")
+	// Load environment
+	err := godotenv.Load("./config/.env")
 	if err != nil {
-		log.Fatal("Error loading .env file")
-		return
+		panic(err)
+	}
+	// Initialize bot
+	dispatcher.Ayr.Tokens["genius"] = os.Getenv("AYR_GENIUS_TOKEN")
+	dispatcher.Ayr.Tokens["discogs_key"] = os.Getenv("AYR_DISCOGS_KEY")
+	dispatcher.Ayr.Tokens["discogs_secret"] = os.Getenv("AYR_DISCOGS_SECRET")
+	s, err := discordgo.New("Bot " + os.Getenv("AYR_TOKEN"))
+	if err != nil {
+		panic(err)
+	}
+	s.Identify.Intents = discordgo.IntentsGuildMessages
+
+	s.AddHandler(InteractionHandler)
+
+	err = s.Open()
+
+	if err != nil {
+		panic(err)
 	}
 
-	fmt.Println("Connecting bot...")
-	bot, err := discordgo.New("Bot "+ os.Getenv("AYR_TOKEN"))
-	self.Ayr.Bot = bot
-	if err != nil {
-		log.Fatal(err)
-		return
-	} else {
-		fmt.Println("Connected bot")
+	dispatcher.Ayr.S = s
+
+	ps := []*types.Plugin{
+		plugins.Fun,
+		plugins.General,
+		plugins.Leveling,
+		plugins.Moderation,
+		plugins.Music,
+		plugins.Utility,
 	}
 
-	fmt.Println("Initializing Database client")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://" + os.Getenv("AYR_DBIP") + ":" + os.Getenv("AYR_DBPORT")))
-	if err != nil {
-		fmt.Println("Couldn't connect to Database",err)
-	}
-	self.DB = client
-
-	err = handlers.Init(bot)
-	if err != nil {
-		return
+	for _,p := range ps {
+		dispatcher.Ayr.Plugins[p.Name] = p
 	}
 
-	fmt.Println("Serving")
+
+	for _,p := range ps {
+		dispatcher.Ayr.AddPlugin(p)
+	}
+
+
+
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
-	bot.Close()
+	s.Close()
 }

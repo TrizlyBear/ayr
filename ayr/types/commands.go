@@ -1,36 +1,24 @@
 package types
 
-import (
-	"github.com/bwmarrin/discordgo"
-	"time"
-)
+import "github.com/bwmarrin/discordgo"
 
-type Cog struct {
+type Plugin struct {
 	Name		string
-	Commands 	map[string]Command
+	Emoji		discordgo.ComponentEmoji
+	Description	string
+	Commands	[]*Command
 }
 
-type CommandExc func(self *Ayr, s *discordgo.Session, m *discordgo.MessageCreate)
-
+// Commands structure:
+// 	IR: Runs on interaction response
+//	Init: Runs when initializing the application command
+//	R: Runs when command is executed
 type Command struct {
-	Name		string
-	Owner		bool
-	Cooldown	time.Duration
-	Exc 		CommandExc
-	Commands	map[string]Command
-}
-
-func (cog *Cog) Inject(bot Ayr)  {
-	for _,e := range cog.Commands {
-		bot.Commands[e.Name] = e
-	}
-	bot.Cogs[cog.Name] = *cog
-}
-
-func (cog Cog) Add(command Command) {
-	cog.Commands[command.Name] = command
-}
-
-func (cmd Command) Add(command Command) {
-	cmd.Commands[command.Name] = command
+	*discordgo.ApplicationCommand
+	Plugin		*Plugin
+	Alias		[]string
+	IR			func(s *discordgo.Session, i *discordgo.InteractionCreate, args []string)
+	Init		func(c *Command)
+	AC			func(s *discordgo.Session, i *discordgo.InteractionCreate)
+	R			func(s *discordgo.Session, m *discordgo.InteractionCreate)error
 }
